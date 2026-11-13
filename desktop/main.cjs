@@ -2,7 +2,9 @@ const { app, BrowserWindow, globalShortcut, clipboard, Tray, Menu, ipcMain, scre
 const fs = require('node:fs/promises');
 const path = require('node:path');
 const { isJson, MAX_JSON } = require('../src/core.js');
+const { createStartup, STARTUP_ARG } = require('./startup.cjs');
 let window, tray, quitting = false, shortcutReady = false, wakeSequence = 0;
+const startupLaunch = process.argv.includes(STARTUP_ARG);
 const testing = process.env.TOOLBOX_TEST === '1';
 if (testing) app.setPath('userData', path.join(app.getPath('temp'), 'ssx-toolbox-test-' + process.pid));
 const lock = testing || app.requestSingleInstanceLock();
@@ -11,7 +13,7 @@ else {
   function bounds(expanded) {
     const area = screen.getDisplayNearestPoint(screen.getCursorScreenPoint()).workArea;
     const width = Math.min(expanded ? 1060 : 720, area.width - 32);
-    const height = Math.min(expanded ? 740 : 400, area.height - 32);
+    const height = Math.min(expanded ? 740 : 540, area.height - 32);
     return { width, height, x: Math.round(area.x + (area.width - width) / 2), y: Math.round(area.y + Math.max(16, (area.height - height) / 3)) };
   }
   async function wake(readClipboard = true) {
@@ -32,6 +34,7 @@ else {
   }
   app.whenReady().then(() => {
     app.setAppUserModelId('ssx.toolbox');
+    const startup = createStartup(app);
     Menu.setApplicationMenu(null);
     window = new BrowserWindow({
       ...bounds(false), show: false, frame: false, resizable: true, minWidth: 380, minHeight: 400,
@@ -60,16 +63,20 @@ else {
     shortcutReady = globalShortcut.register('Control+Space', () => wake(true));
     tray = new Tray(path.join(__dirname, '../assets/icon.ico'));
     tray.setToolTip('Ssx 工具箱 · Ctrl + 空格');
-    tray.setContextMenu(Menu.buildFromTemplate([
+    const refreshTrayMenu = () => tray.setContextMenu(Menu.buildFromTemplate([
       { label: '打开工具箱', click: () => wake(false) },
       { label: shortcutReady ? '快捷键：Ctrl + 空格' : 'Ctrl + 空格被占用，请关闭冲突应用后重启', enabled: false },
+      { type: 'separator' },
+      startup.menuItem(error => dialog.showErrorBox('无法更改开机启动', error.message)),
       { type: 'separator' }, { label: '退出工具箱', click: () => app.quit() }
     ]));
+    refreshTrayMenu();
+    tray.on('right-click', refreshTrayMenu);
     tray.on('double-click', () => wake(false));
-    window.webContents.once('did-finish-load', () => wake(false));
+    window.webContents.once('did-finish-load', () => { if (!startupLaunch) wake(false); });
     window.loadFile(path.join(__dirname, '../src/index.html'));
   });
-  app.on('second-instance', () => wake(false));
+  app.on('second-instance', (_event, commandLine) => { if (!commandLine.includes(STARTUP_ARG)) wake(false); });
   app.on('activate', () => wake(false));
   app.on('before-quit', () => { quitting = true; });
   app.on('will-quit', () => { globalShortcut.unregisterAll(); tray?.destroy(); });

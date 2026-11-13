@@ -6,3 +6,15 @@
 
 
 #footer-tip{margin-left:auto}
+.decode-layout{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+.decode-layout textarea{white-space:pre-wrap;overflow-wrap:anywhere}
+.timestamp-fields{display:flex;align-items:flex-end;gap:16px;margin-bottom:16px}
+.timestamp-value{flex:1;min-width:0}
+.timestamp-fields .field-label{justify-content:flex-start}
+#timestamp-input{width:100%;min-width:0;border:1px solid var(--line);border-radius:7px;padding:10px 12px;background:var(--paper);font:14px/1.5 Consolas,"Cascadia Code",monospace;font-variant-numeric:tabular-nums}
+#timestamp-input::placeholder{font:13px/1.5 "Segoe UI","Microsoft YaHei UI",sans-serif;color:var(--muted)}
+#timestamp-unit{min-height:44px}
+#timestamp-output{width:100%;min-width:0;border:0;padding:22px 16px;background:var(--paper);font:19px/1.5 Consolas,"Cascadia Code",monospace;font-variant-numeric:tabular-nums;outline-offset:-3px}
+#timestamp-output::placeholder{font:14px/1.5 "Segoe UI","Microsoft YaHei UI",sans-serif;color:var(--muted)}
+[aria-invalid=true]{box-shadow:inset 0 0 0 1px var(--error)}
+@media(max-width:650px){.decode-layout{grid-template-columns:1fr}.decode-layout textarea{height:180px}.timestamp-fields{flex-direction:column;align-items:stretch;gap:12px}#timestamp-unit{width:100%}#timestamp-output{font-size:14px}}
