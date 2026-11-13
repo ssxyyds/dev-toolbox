@@ -1,0 +1,19 @@
+{
+  "name": "ssx-toolbox",
+  "version": "1.0.0",
+  "private": true,
+  "description": "本地桌面工具箱：JSON 格式化与随机密码生成",
+  "author": "ssx",
+  "main": "desktop/main.cjs",
+  "scripts": {
+    "start": "electron .",
+    "test": "node --test tests/core.test.cjs",
+    "pack": "electron-packager . SsxToolbox --platform=win32 --arch=x64 --out=release --overwrite --asar --icon=assets/icon.ico --ignore=\"^/(release|tests|scripts|\\.impeccable|.*\\.md$)\"",
+    "test:desktop": "node scripts/test-desktop.cjs"
+  },
+  "devDependencies": {
+    "@electron/packager": "20.3.0",
+    "electron": "45.0.0",
+    "playwright": "1.62.1"
+  }
+}

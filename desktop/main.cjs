@@ -1,0 +1,77 @@
+const { app, BrowserWindow, globalShortcut, clipboard, Tray, Menu, ipcMain, screen, dialog } = require('electron');
+const fs = require('node:fs/promises');
+const path = require('node:path');
+const { isJson, MAX_JSON } = require('../src/core.js');
+let window, tray, quitting = false, shortcutReady = false, wakeSequence = 0;
+const testing = process.env.TOOLBOX_TEST === '1';
+if (testing) app.setPath('userData', path.join(app.getPath('temp'), 'ssx-toolbox-test-' + process.pid));
+const lock = testing || app.requestSingleInstanceLock();
+if (!lock) app.quit();
+else {
+  function bounds(expanded) {
+    const area = screen.getDisplayNearestPoint(screen.getCursorScreenPoint()).workArea;
+    const width = Math.min(expanded ? 1060 : 720, area.width - 32);
+    const height = Math.min(expanded ? 740 : 400, area.height - 32);
+    return { width, height, x: Math.round(area.x + (area.width - width) / 2), y: Math.round(area.y + Math.max(16, (area.height - height) / 3)) };
+  }
+  async function wake(readClipboard = true) {
+    if (!window || window.isDestroyed()) return;
+    const sequence = ++wakeSequence;
+    let json = null;
+    if (readClipboard) {
+      try {
+        const text = await clipboard.readText();
+        if (text.length <= MAX_JSON && isJson(text)) json = text;
+      } catch { /* A locked clipboard must not prevent opening the launcher. */ }
+    }
+    if (sequence !== wakeSequence || !window || window.isDestroyed()) return;
+    window.setBounds(bounds(Boolean(json)));
+    if (window.isMinimized()) window.restore();
+    window.show(); window.focus();
+    window.webContents.send('app:wake', { json });
+  }
+  app.whenReady().then(() => {
+    app.setAppUserModelId('ssx.toolbox');
+    Menu.setApplicationMenu(null);
+    window = new BrowserWindow({
+      ...bounds(false), show: false, frame: false, resizable: true, minWidth: 380, minHeight: 400,
+      title: 'Ssx 工具箱', backgroundColor: '#ffffff', icon: path.join(__dirname, '../assets/icon.ico'),
+      webPreferences: { preload: path.join(__dirname, 'preload.cjs'), contextIsolation: true, sandbox: true, nodeIntegration: false, spellcheck: false }
+    });
+    window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+    window.webContents.on('will-navigate', event => event.preventDefault());
+    window.webContents.session.setPermissionRequestHandler((_wc, _permission, callback) => callback(false));
+    window.webContents.session.webRequest.onBeforeRequest((details, callback) => callback({ cancel: !details.url.startsWith('file:') && !details.url.startsWith('devtools:') }));
+    window.on('close', event => { if (!quitting) { event.preventDefault(); window.hide(); } });
+    const trusted = event => event.sender === window.webContents && event.senderFrame === window.webContents.mainFrame;
+    ipcMain.on('window:hide', event => { if (trusted(event)) window.hide(); });
+    ipcMain.on('window:resize', (event, expanded) => { if (trusted(event)) window.setBounds(bounds(Boolean(expanded))); });
+    ipcMain.handle('clipboard:copy', async (event, text) => {
+      if (!trusted(event) || typeof text !== 'string' || text.length > MAX_JSON * 16) throw new Error('无法复制此内容。');
+      await clipboard.writeText(text); return true;
+    });
+    ipcMain.handle('app:status', event => trusted(event) ? { shortcutReady } : null);
+    ipcMain.handle('json:save', async (event, text) => {
+      if (!trusted(event) || typeof text !== 'string' || text.length > MAX_JSON * 16) throw new Error('无法保存此内容。');
+      const result = await dialog.showSaveDialog(window, { title: '保存 JSON', defaultPath: 'formatted.json', filters: [{ name: 'JSON 文件', extensions: ['json'] }] });
+      if (result.canceled || !result.filePath) return false;
+      await fs.writeFile(result.filePath, text, 'utf8'); return true;
+    });
+    shortcutReady = globalShortcut.register('Control+Space', () => wake(true));
+    tray = new Tray(path.join(__dirname, '../assets/icon.ico'));
+    tray.setToolTip('Ssx 工具箱 · Ctrl + 空格');
+    tray.setContextMenu(Menu.buildFromTemplate([
+      { label: '打开工具箱', click: () => wake(false) },
+      { label: shortcutReady ? '快捷键：Ctrl + 空格' : 'Ctrl + 空格被占用，请关闭冲突应用后重启', enabled: false },
+      { type: 'separator' }, { label: '退出工具箱', click: () => app.quit() }
+    ]));
+    tray.on('double-click', () => wake(false));
+    window.webContents.once('did-finish-load', () => wake(false));
+    window.loadFile(path.join(__dirname, '../src/index.html'));
+  });
+  app.on('second-instance', () => wake(false));
+  app.on('activate', () => wake(false));
+  app.on('before-quit', () => { quitting = true; });
+  app.on('will-quit', () => { globalShortcut.unregisterAll(); tray?.destroy(); });
+  app.on('window-all-closed', () => {});
+}

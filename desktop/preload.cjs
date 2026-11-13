@@ -1,0 +1,9 @@
+const { contextBridge, ipcRenderer } = require('electron');
+contextBridge.exposeInMainWorld('desktop', {
+  hide: () => ipcRenderer.send('window:hide'),
+  resize: expanded => ipcRenderer.send('window:resize', Boolean(expanded)),
+  copy: text => ipcRenderer.invoke('clipboard:copy', text),
+  saveJson: text => ipcRenderer.invoke('json:save', text),
+  status: () => ipcRenderer.invoke('app:status'),
+  onWake: callback => ipcRenderer.on('app:wake', (_event, payload) => callback(payload))
+});

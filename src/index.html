@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
+  <title>Ssx 工具箱</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="core.js" defer></script>
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <header class="titlebar">
+    <div class="brand"><img class="brand-icon" src="../assets/icon.svg" alt="" width="24" height="24"><strong>Ssx 工具箱</strong></div>
+    <button id="hide" class="icon-button" aria-label="隐藏到托盘" title="隐藏到托盘（Esc）"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 7 10 10M17 7 7 17"/></svg></button>
+  </header>
+  <main>
+    <div class="search-wrap">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/></svg>
+      <input id="search" type="search" placeholder="搜索工具，或直接粘贴 JSON…" aria-label="搜索工具" autocomplete="off" spellcheck="false" aria-controls="tool-list">
+      <kbd>Ctrl + 空格</kbd>
+    </div>
+    <section id="launcher" aria-label="工具列表">
+      <div class="section-label"><span id="list-label">全部工具</span><span>↑ ↓ 选择 · Enter 打开</span></div>
+      <div id="tool-list">
+        <button class="tool-row selected" data-tool="json"><span class="tool-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 4H6v6l-2 2 2 2v6h2M16 4h2v6l2 2-2 2v6h-2M10 9h4M10 15h4"/></svg></span><span class="tool-info"><strong>JSON 格式化</strong><span>格式化、压缩与校验，保留长数字原文</span></span><span class="tool-key">JSON</span></button>
+        <button class="tool-row" data-tool="password"><span class="tool-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="9" r="4"/><path d="m12 12 8 8m-4-4 3-3m-5 1 2-2"/></svg></span><span class="tool-info"><strong>密码与 UUID 生成</strong><span>自定义随机密码、UUID，支持批量生成</span></span><span class="tool-key">PASS</span></button>
+      </div>
+      <p id="no-results" class="empty" hidden>没有找到工具，试试「JSON」或「密码」。</p>
+    </section>
+    <section id="workspace" hidden>
+      <div class="workspace-heading"><button id="back" class="text-button">← 返回工具</button><h1 id="tool-title">JSON 格式化</h1></div>
+      <div id="json-tool">
+        <div class="toolbar"><button id="format" class="primary">格式化</button><button id="minify">压缩</button><label class="inline-label">缩进 <select id="indent" aria-label="缩进"><option value="2">2 空格</option><option value="4">4 空格</option><option value="tab">Tab</option></select></label><span class="spacer"></span><button id="import">导入文件</button><button id="clear">清空</button><input id="file" type="file" accept=".json,.txt,application/json" hidden></div>
+        <div class="editor output-editor">
+          <div class="editor-label"><label for="json-output">JSON 内容</label><button id="copy-json" class="text-button" disabled>复制结果</button></div>
+          <textarea id="json-output" spellcheck="false" placeholder="粘贴 JSON 自动格式化" title="Ctrl + Enter 格式化"></textarea>
+          <div class="editor-bottom"><button id="example" class="text-button">填入示例</button><span id="output-count">等待输入</span><button id="download" class="text-button" disabled>保存 .json</button></div>
+        </div>
+        <p id="json-message" class="message" role="status" aria-live="polite" hidden></p>
+      </div>
+      <div id="password-tool" hidden>
+        <div class="password-layout">
+          <form id="password-form" class="password-settings">
+            <div class="settings-heading"><h2>生成设置</h2><select id="generator-mode" aria-label="生成类型"><option value="password">随机密码</option><option value="uuid">UUID v4</option></select></div>
+            <div id="password-options">
+            <label for="length" class="field-label">密码长度 <span>8–128 位</span></label><div class="length-controls"><input id="length-range" type="range" min="8" max="128" value="16" aria-label="密码长度滑块"><input id="length" type="number" min="8" max="128" value="16" required></div>
+            <fieldset><legend>包含字符</legend><label><input id="upper" type="checkbox" checked>大写字母 <span>A–Z</span></label><label><input id="lower" type="checkbox" checked>小写字母 <span>a–z</span></label><label><input id="digits" type="checkbox" checked>数字 <span>0–9</span></label><label><input id="symbols" type="checkbox">特殊符号 <span>! @ #</span></label></fieldset>
+            <label class="exclude"><input id="exclude" type="checkbox" checked>排除易混淆字符 <span>Il1O0o</span></label>
+            </div>
+            <label for="count" class="field-label">生成数量 <input id="count" type="number" min="1" max="20" value="5" required></label>
+            <button class="primary generate" type="submit">生成密码</button>
+          </form>
+          <div class="password-results"><div class="editor-label"><h2>生成结果</h2><button id="copy-all" class="text-button" disabled>复制全部</button></div><div id="password-list"><p class="empty">暂无结果</p></div></div>
+        </div><p id="password-message" class="message" role="status" aria-live="polite" hidden></p>
+      </div>
+    </section>
+  </main>
+  <footer><span id="app-status" hidden></span><span id="footer-tip">Esc 隐藏窗口</span></footer>
+  <div id="toast" role="status" aria-live="polite" hidden></div>
+</body>
+</html>
