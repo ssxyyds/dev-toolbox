@@ -10,85 +10,194 @@
   <script src="app.js" defer></script>
 </head>
 <body>
+  <svg hidden aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+    <symbol id="icon-search" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6"/><path d="m15 15 4.5 4.5"/></symbol>
+    <symbol id="icon-close" viewBox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18"/></symbol>
+    <symbol id="icon-minimize" viewBox="0 0 24 24"><path d="M6 12h12"/></symbol>
+    <symbol id="icon-maximize" viewBox="0 0 24 24"><rect x="6.5" y="6.5" width="11" height="11" rx=".5"/></symbol>
+    <symbol id="icon-restore" viewBox="0 0 24 24"><rect x="5" y="9" width="10" height="10" rx=".5"/><path d="M9 6V5h10v10h-1"/></symbol>
+    <symbol id="icon-back" viewBox="0 0 24 24"><path d="m10 6-6 6 6 6M4 12h16"/></symbol>
+    <symbol id="icon-next" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></symbol>
+    <symbol id="icon-json" viewBox="0 0 24 24"><path d="M8.5 4H7a2 2 0 0 0-2 2v3a3 3 0 0 1-2 3 3 3 0 0 1 2 3v3a2 2 0 0 0 2 2h1.5M15.5 4H17a2 2 0 0 1 2 2v3a3 3 0 0 0 2 3 3 3 0 0 0-2 3v3a2 2 0 0 1-2 2h-1.5M10 10h4m-4 4h4"/></symbol>
+    <symbol id="icon-key" viewBox="0 0 24 24"><circle cx="8.5" cy="8.5" r="4.5"/><path d="m12 12 7.5 7.5m-3-3 2.5-2.5"/></symbol>
+    <symbol id="icon-code" viewBox="0 0 24 24"><path d="m8 7-5 5 5 5m8-10 5 5-5 5m-2-13-4 16"/></symbol>
+    <symbol id="icon-time" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 7v5l3.2 2"/></symbol>
+    <symbol id="icon-copy" viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 4H6a2 2 0 0 0-2 2v10"/></symbol>
+    <symbol id="icon-check" viewBox="0 0 24 24"><path d="m5 12 4.5 4.5L19 7"/></symbol>
+    <symbol id="icon-warning" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v4m0 4h.01"/></symbol>
+    <symbol id="icon-clipboard" viewBox="0 0 24 24"><rect x="8" y="3" width="8" height="4" rx="1.5"/><path d="M8 5H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M8 12h8m-8 4h6"/></symbol>
+  </svg>
+
   <header class="titlebar">
-    <div class="brand"><img class="brand-icon" src="../assets/icon.svg" alt="" width="24" height="24"><strong>Ssx 工具箱</strong></div>
-    <button id="hide" class="icon-button" aria-label="隐藏到托盘" title="隐藏到托盘（Esc）"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 7 10 10M17 7 7 17"/></svg></button>
-  </header>
-  <main>
-    <div class="search-wrap">
-      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/></svg>
-      <input id="search" type="search" placeholder="搜索工具，或直接粘贴 JSON…" aria-label="搜索工具" autocomplete="off" spellcheck="false" aria-controls="tool-list">
-      <kbd>Ctrl + 空格</kbd>
+    <div class="brand"><img src="../assets/icon.svg" alt="" width="24" height="24"><strong>Ssx 工具箱</strong></div>
+    <div id="window-controls" class="window-controls" hidden>
+      <button id="minimize-window" aria-label="最小化" title="最小化"><svg aria-hidden="true"><use href="#icon-minimize"/></svg></button>
+      <button id="maximize-window" aria-label="最大化" title="最大化"><svg aria-hidden="true"><use id="maximize-icon" href="#icon-maximize"/></svg></button>
+      <button id="hide" aria-label="隐藏到托盘" title="隐藏到托盘"><svg aria-hidden="true"><use href="#icon-close"/></svg></button>
     </div>
-    <section id="launcher" aria-label="工具列表">
-      <div class="section-label"><span id="list-label">全部工具</span><span>↑ ↓ 选择 · Enter 打开</span></div>
-      <div id="tool-list">
-        <button class="tool-row selected" data-tool="json"><span class="tool-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 4H6v6l-2 2 2 2v6h2M16 4h2v6l2 2-2 2v6h-2M10 9h4M10 15h4"/></svg></span><span class="tool-info"><strong>JSON 格式化</strong><span>格式化、压缩与校验，保留长数字原文</span></span><span class="tool-key">JSON</span></button>
-        <button class="tool-row" data-tool="password"><span class="tool-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="9" r="4"/><path d="m12 12 8 8m-4-4 3-3m-5 1 2-2"/></svg></span><span class="tool-info"><strong>密码与 UUID 生成</strong><span>自定义随机密码、UUID，支持批量生成</span></span><span class="tool-key">PASS</span></button>
-        <button class="tool-row" data-tool="base64"><span class="tool-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8 7-5 5 5 5m8-10 5 5-5 5m-3-13-2 16"/></svg></span><span class="tool-info"><strong>Base64 解码</strong><span>解码为文字，支持中文与 Base64URL</span></span><span class="tool-key">BASE64</span></button>
-        <button class="tool-row" data-tool="timestamp"><span class="tool-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span><span class="tool-info"><strong>时间戳转北京时间</strong><span>秒、毫秒时间戳转换为 UTC+8 时间</span></span><span class="tool-key">TIME</span></button>
-      </div>
-      <p id="no-results" class="empty" hidden>没有找到工具，试试「JSON」「密码」「Base64」或「时间戳」。</p>
-    </section>
-    <section id="workspace" hidden>
-      <div class="workspace-heading"><button id="back" class="text-button">← 返回工具</button><h1 id="tool-title">JSON 格式化</h1></div>
-      <div id="json-tool">
-        <div class="toolbar"><button id="format" class="primary">格式化</button><button id="minify">压缩</button><button id="expand-json" title="把字符串中的 JSON 对象或数组展开，普通字符串保持原样">展开嵌套 JSON</button><button id="undo-expand" hidden>撤销展开</button><label class="inline-label">缩进 <select id="indent" aria-label="缩进"><option value="2">2 空格</option><option value="4">4 空格</option><option value="tab">Tab</option></select></label><span class="spacer"></span><button id="import">导入文件</button><button id="clear">清空</button><input id="file" type="file" accept=".json,.txt,application/json" hidden></div>
-        <div class="editor output-editor">
-          <div class="editor-label"><label for="json-output">JSON 内容</label><button id="copy-json" class="text-button" disabled>复制结果</button></div>
-          <textarea id="json-output" spellcheck="false" placeholder="粘贴 JSON 自动格式化" title="Ctrl + Enter 格式化"></textarea>
-          <div class="editor-bottom"><button id="example" class="text-button">填入示例</button><span id="output-count">等待输入</span><button id="download" class="text-button" disabled>保存 .json</button></div>
+  </header>
+
+  <main id="main">
+    <div class="content">
+      <aside id="clipboard-offer" class="clipboard-offer" aria-labelledby="clipboard-title" hidden>
+        <svg aria-hidden="true"><use href="#icon-clipboard"/></svg>
+        <div class="offer-text"><strong id="clipboard-title">剪贴板中有 JSON</strong><span id="clipboard-detail"></span></div>
+        <div class="actions"><button id="load-clipboard" class="accent-button">载入剪贴板</button><button id="dismiss-clipboard" class="text-button">忽略</button></div>
+      </aside>
+
+      <section id="launcher" aria-labelledby="launcher-title">
+        <div class="launcher-heading">
+          <h1 id="launcher-title">开发工具</h1>
+          <p>搜索工具，或粘贴 JSON 对象和数组。</p>
         </div>
-        <p id="json-message" class="message" role="status" aria-live="polite" hidden></p>
-      </div>
-      <div id="password-tool" hidden>
-        <div class="password-layout">
-          <form id="password-form" class="password-settings">
-            <div class="settings-heading"><h2>生成设置</h2><select id="generator-mode" aria-label="生成类型"><option value="password">随机密码</option><option value="uuid">UUID v4</option></select></div>
-            <div id="password-options">
-            <label for="length" class="field-label">密码长度 <span>8–128 位</span></label><div class="length-controls"><input id="length-range" type="range" min="8" max="128" value="16" aria-label="密码长度滑块"><input id="length" type="number" min="8" max="128" value="16" required></div>
-            <fieldset><legend>包含字符</legend><label><input id="upper" type="checkbox" checked>大写字母 <span>A–Z</span></label><label><input id="lower" type="checkbox" checked>小写字母 <span>a–z</span></label><label><input id="digits" type="checkbox" checked>数字 <span>0–9</span></label><label><input id="symbols" type="checkbox">特殊符号 <span>! @ #</span></label></fieldset>
-            <label class="exclude"><input id="exclude" type="checkbox" checked>排除易混淆字符 <span>Il1O0o</span></label>
+        <div class="search-wrap">
+          <svg aria-hidden="true"><use href="#icon-search"/></svg>
+          <input id="search" type="text" role="combobox" aria-label="搜索工具" aria-controls="tool-list" aria-expanded="true" aria-autocomplete="list" autocomplete="off" spellcheck="false" placeholder="搜索工具…">
+          <button id="clear-search" class="icon-button" aria-label="清除搜索" title="清除搜索" hidden><svg aria-hidden="true"><use href="#icon-close"/></svg></button>
+          <kbd id="launcher-hotkey" title="全局唤出工具箱">Ctrl + 空格</kbd>
+        </div>
+        <div class="section-label"><span id="list-label">全部工具</span><span id="result-count" role="status"></span></div>
+        <div id="tool-list" role="listbox" aria-labelledby="list-label">
+          <button id="tool-option-json" class="tool-row" data-tool="json" type="button" role="option" aria-selected="true" aria-labelledby="tool-name-json" aria-describedby="tool-desc-json" tabindex="-1">
+            <span class="tool-icon"><svg aria-hidden="true"><use href="#icon-json"/></svg></span>
+            <span class="tool-info"><strong id="tool-name-json">JSON 格式化</strong><span id="tool-desc-json">格式化、压缩、展开嵌套，保留大整数</span></span>
+            <span class="tool-key" aria-hidden="true">JSON</span><svg class="tool-next" aria-hidden="true"><use href="#icon-next"/></svg>
+          </button>
+          <button id="tool-option-password" class="tool-row" data-tool="password" type="button" role="option" aria-selected="false" aria-labelledby="tool-name-password" aria-describedby="tool-desc-password" tabindex="-1">
+            <span class="tool-icon"><svg aria-hidden="true"><use href="#icon-key"/></svg></span>
+            <span class="tool-info"><strong id="tool-name-password">密码与 UUID 生成</strong><span id="tool-desc-password">自定义随机密码，批量生成 UUID v4</span></span>
+            <span class="tool-key" aria-hidden="true">GEN</span><svg class="tool-next" aria-hidden="true"><use href="#icon-next"/></svg>
+          </button>
+          <button id="tool-option-base64" class="tool-row" data-tool="base64" type="button" role="option" aria-selected="false" aria-labelledby="tool-name-base64" aria-describedby="tool-desc-base64" tabindex="-1">
+            <span class="tool-icon"><svg aria-hidden="true"><use href="#icon-code"/></svg></span>
+            <span class="tool-info"><strong id="tool-name-base64">Base64 编解码</strong><span id="tool-desc-base64">UTF-8 文本与 Base64、Base64URL 互转</span></span>
+            <span class="tool-key" aria-hidden="true">B64</span><svg class="tool-next" aria-hidden="true"><use href="#icon-next"/></svg>
+          </button>
+          <button id="tool-option-timestamp" class="tool-row" data-tool="timestamp" type="button" role="option" aria-selected="false" aria-labelledby="tool-name-timestamp" aria-describedby="tool-desc-timestamp" tabindex="-1">
+            <span class="tool-icon"><svg aria-hidden="true"><use href="#icon-time"/></svg></span>
+            <span class="tool-info"><strong id="tool-name-timestamp">时间戳转换</strong><span id="tool-desc-timestamp">Unix 时间戳与北京时间互转</span></span>
+            <span class="tool-key" aria-hidden="true">TIME</span><svg class="tool-next" aria-hidden="true"><use href="#icon-next"/></svg>
+          </button>
+        </div>
+        <div id="no-results" class="empty search-empty" hidden><strong>没有找到工具</strong><span>试试 JSON、UUID、Base64 或时间戳。</span></div>
+      </section>
+
+      <section id="workspace" aria-labelledby="tool-title" hidden>
+        <div class="workspace-heading">
+          <h1 id="tool-title">JSON 格式化</h1>
+          <button id="back" class="text-button" title="返回工具列表（Ctrl + K）"><svg aria-hidden="true"><use href="#icon-back"/></svg> 工具列表 <kbd>Ctrl + K</kbd></button>
+        </div>
+
+        <div id="json-tool" class="tool-panel">
+          <div class="toolbar">
+            <div class="actions">
+              <button id="format" class="primary" title="格式化（Ctrl + Enter）">格式化</button><button id="minify">压缩</button>
+              <button id="expand-json" title="将字符串中的 JSON 对象或数组展开">展开嵌套 JSON</button><button id="undo-expand" hidden>撤销展开</button>
             </div>
-            <label for="count" class="field-label">生成数量 <input id="count" type="number" min="1" max="20" value="5" required></label>
-            <button class="primary generate" type="submit">生成密码</button>
+            <div class="actions">
+              <label class="inline-label" for="indent">缩进 <select id="indent"><option value="2">2 空格</option><option value="4">4 空格</option><option value="tab">Tab</option></select></label>
+              <button id="import">导入文件</button><button id="clear" class="text-button">清空</button><input id="file" type="file" accept=".json,.txt,application/json,text/plain" hidden>
+            </div>
+          </div>
+          <div id="json-editor" class="editor">
+            <div class="editor-label">
+              <label for="json-output">JSON 内容</label>
+              <div class="actions">
+                <label class="check-control" for="json-wrap"><input type="checkbox" id="json-wrap">自动换行</label>
+                <button id="copy-json" class="text-button copy-button" disabled><svg aria-hidden="true"><use href="#icon-copy"/></svg>复制结果</button>
+              </div>
+            </div>
+            <textarea id="json-output" spellcheck="false" wrap="off" placeholder="粘贴 JSON，或将 .json 文件拖到这里" aria-describedby="json-message" title="Ctrl + Enter 格式化"></textarea>
+            <div class="editor-bottom"><button id="example" class="text-button">填入示例</button><span id="output-count" class="editor-count">等待输入</span><button id="download" class="text-button" disabled>保存 .json</button></div>
+            <div id="drop-hint" class="drop-hint" hidden><strong>松开鼠标以导入 JSON</strong></div>
+          </div>
+          <p id="json-message" class="message" role="status" hidden></p>
+        </div>
+
+        <div id="password-tool" class="tool-panel" hidden>
+          <div class="password-layout">
+            <form id="password-form" class="password-settings" novalidate aria-describedby="password-message">
+              <div class="field"><label for="generator-mode">生成类型</label><select id="generator-mode"><option value="password">随机密码</option><option value="uuid">UUID v4</option></select></div>
+              <div id="password-options" class="password-options">
+                <div class="field">
+                  <label for="length">密码长度 <span>8–128 位</span></label>
+                  <div class="length-controls"><input id="length-range" type="range" min="8" max="128" value="16" aria-label="密码长度滑块"><input id="length" type="number" min="8" max="128" value="16" required></div>
+                </div>
+                <fieldset class="character-options">
+                  <legend>包含字符</legend>
+                  <div class="character-grid">
+                    <label class="check-control"><input id="upper" type="checkbox" checked>大写字母</label><label class="check-control"><input id="lower" type="checkbox" checked>小写字母</label>
+                    <label class="check-control"><input id="digits" type="checkbox" checked>数字</label><label class="check-control"><input id="symbols" type="checkbox">特殊符号</label>
+                  </div>
+                </fieldset>
+                <label class="check-control exclude"><input id="exclude" type="checkbox" checked>排除易混淆字符<span>Il1O0o</span></label>
+              </div>
+              <div class="field count-field"><label for="count">生成数量 <span>1–20 组</span></label><input id="count" type="number" min="1" max="20" value="5" required></div>
+              <button class="primary generate" type="submit">生成密码</button>
+            </form>
+            <section class="password-results" aria-labelledby="password-result-title">
+              <div class="results-heading"><div><h2 id="password-result-title">生成结果</h2><span id="password-count" hidden></span></div><div class="actions"><button id="clear-password" class="text-button" disabled>清除结果</button><button id="copy-all" class="text-button copy-button" disabled><svg aria-hidden="true"><use href="#icon-copy"/></svg>复制全部</button></div></div>
+              <div id="password-list"><p class="empty">生成的内容会显示在这里。</p></div>
+            </section>
+          </div>
+          <p id="password-message" class="message" role="status" hidden></p>
+        </div>
+
+        <div id="base64-tool" class="tool-panel" hidden>
+          <div class="toolbar">
+            <fieldset id="base64-mode" class="segments">
+              <legend class="visually-hidden">Base64 转换方向</legend>
+              <label><input type="radio" name="base64-mode" value="decode" checked><span>解码为文本</span></label>
+              <label><input type="radio" name="base64-mode" value="encode"><span>编码为 Base64</span></label>
+            </fieldset>
+            <div class="actions">
+              <label id="base64-variant-field" class="inline-label" for="base64-variant" hidden>编码格式 <select id="base64-variant" disabled><option value="base64">Base64</option><option value="base64url">Base64URL</option></select></label>
+              <button id="convert-base64" class="primary" title="Ctrl + Enter 转换">解码</button><button id="base64-clear" class="text-button">清空</button>
+            </div>
+          </div>
+          <div class="decode-layout">
+            <div class="editor">
+              <div class="editor-label"><label id="base64-input-label" for="base64-input">Base64 内容</label></div>
+              <textarea id="base64-input" spellcheck="false" wrap="soft" placeholder="粘贴 Base64 或 Base64URL，自动解码" aria-describedby="base64-message" title="Ctrl + Enter 转换"></textarea>
+              <div class="editor-bottom"><button id="base64-example" class="text-button">填入示例</button><span id="base64-count" class="editor-count">等待输入</span></div>
+            </div>
+            <div class="editor output-editor">
+              <div class="editor-label"><label id="base64-output-label" for="base64-output">UTF-8 文本</label><button id="copy-base64" class="text-button copy-button" disabled><svg aria-hidden="true"><use href="#icon-copy"/></svg>复制结果</button></div>
+              <textarea id="base64-output" spellcheck="false" wrap="soft" readonly placeholder="转换结果显示在这里"></textarea>
+              <div class="editor-bottom"><span id="base64-output-count" class="editor-count">等待转换</span></div>
+            </div>
+          </div>
+          <p id="base64-message" class="message" role="status" hidden></p>
+        </div>
+
+        <div id="timestamp-tool" class="tool-panel" hidden>
+          <form id="timestamp-form" novalidate>
+            <fieldset id="timestamp-mode" class="segments">
+              <legend class="visually-hidden">时间戳转换方向</legend>
+              <label><input type="radio" name="timestamp-mode" value="to-date" checked><span>转北京时间</span></label>
+              <label><input type="radio" name="timestamp-mode" value="to-unix"><span>转 Unix 时间戳</span></label>
+            </fieldset>
+            <div class="timestamp-fields">
+              <div class="field timestamp-value"><label id="timestamp-input-label" for="timestamp-input">Unix 时间戳</label><input id="timestamp-input" type="text" inputmode="numeric" autocomplete="off" spellcheck="false" placeholder="例如 1700000000 或 1700000000123" aria-describedby="timestamp-hint timestamp-message"></div>
+              <div class="field"><label id="timestamp-unit-label" for="timestamp-unit">输入单位</label><select id="timestamp-unit"><option id="timestamp-auto-unit" value="auto">自动识别</option><option value="seconds">秒（s）</option><option value="milliseconds">毫秒（ms）</option></select></div>
+            </div>
+            <p id="timestamp-hint" class="field-hint">可自动识别常用的 10 位秒和 13 位毫秒时间戳。</p>
+            <div class="toolbar"><div class="actions"><button type="submit" class="primary">转换</button><button id="timestamp-now" type="button">当前时间</button><button id="timestamp-clear" type="button" class="text-button">清空</button></div></div>
           </form>
-          <div class="password-results"><div class="editor-label"><h2>生成结果</h2><button id="copy-all" class="text-button" disabled>复制全部</button></div><div id="password-list"><p class="empty">暂无结果</p></div></div>
-        </div><p id="password-message" class="message" role="status" aria-live="polite" hidden></p>
-      </div>
-      <div id="base64-tool" hidden>
-        <div class="toolbar"><button id="decode-base64" class="primary">解码</button><button id="decode-fbclid" title="去掉前两位及 _aem_ 后缀，按 Base64URL 解码，不可见字节显示为 .">fbclid 临时解码</button><button id="base64-clear">清空</button></div>
-        <div class="decode-layout">
-          <div class="editor">
-            <div class="editor-label"><label for="base64-input">Base64 内容</label><span>UTF-8</span></div>
-            <textarea id="base64-input" spellcheck="false" wrap="soft" placeholder="粘贴 Base64 自动解码" aria-describedby="base64-message" title="Ctrl + Enter 解码"></textarea>
-            <div class="editor-bottom"><button id="base64-example" class="text-button">填入示例</button><span id="base64-count">等待输入</span></div>
+          <div class="editor output-editor timestamp-result">
+            <div class="editor-label"><label id="timestamp-output-label" for="timestamp-output">北京时间（UTC+8）</label><button id="copy-timestamp" class="text-button copy-button" disabled><svg aria-hidden="true"><use href="#icon-copy"/></svg>复制结果</button></div>
+            <input id="timestamp-output" type="text" readonly placeholder="转换后的时间显示在这里">
           </div>
-          <div class="editor output-editor">
-            <div class="editor-label"><label for="base64-output">解码结果</label><button id="copy-base64" class="text-button" disabled>复制结果</button></div>
-            <textarea id="base64-output" spellcheck="false" wrap="soft" readonly placeholder="解码后的文字显示在这里"></textarea>
-            <div class="editor-bottom"><span id="decoded-count">等待解码</span></div>
-          </div>
+          <p id="timestamp-message" class="message" role="status" hidden></p>
         </div>
-        <p id="base64-message" class="message" role="status" aria-live="polite" hidden></p>
-      </div>
-      <div id="timestamp-tool" hidden>
-        <form id="timestamp-form" novalidate>
-          <div class="timestamp-fields">
-            <div class="timestamp-value"><label for="timestamp-input" class="field-label">Unix 时间戳</label><input id="timestamp-input" type="text" inputmode="numeric" autocomplete="off" spellcheck="false" placeholder="例如 1700000000 或 1700000000123" aria-describedby="timestamp-message"></div>
-            <div><label for="timestamp-unit" class="field-label">单位</label><select id="timestamp-unit"><option value="auto">自动识别</option><option value="seconds">秒（s）</option><option value="milliseconds">毫秒（ms）</option></select></div>
-          </div>
-          <div class="toolbar"><button type="submit" class="primary">转换</button><button id="timestamp-now" type="button">当前时间</button><button id="timestamp-clear" type="button">清空</button></div>
-        </form>
-        <div class="editor timestamp-result">
-          <div class="editor-label"><label for="timestamp-output">北京时间（UTC+8）</label><button id="copy-timestamp" class="text-button" disabled>复制结果</button></div>
-          <input id="timestamp-output" type="text" readonly placeholder="转换后的时间显示在这里">
-        </div>
-        <p id="timestamp-message" class="message" role="status" aria-live="polite" hidden></p>
-      </div>
-    </section>
+      </section>
+    </div>
   </main>
-  <footer><span id="app-status" hidden></span><span id="footer-tip">Esc 隐藏窗口</span></footer>
-  <div id="toast" role="status" aria-live="polite" hidden></div>
+
+  <footer>
+    <span id="app-status" title="所有转换均在本机完成"><span class="status-dot" aria-hidden="true"></span><span id="app-status-text">离线处理</span></span>
+    <span id="footer-tip"><kbd>↑</kbd><kbd>↓</kbd> 选择 <kbd>Enter</kbd> 打开 <kbd>Esc</kbd> 隐藏</span>
+  </footer>
+  <div id="toast" class="toast" role="status" hidden><svg aria-hidden="true"><use id="toast-icon" href="#icon-check"/></svg><span id="toast-text"></span></div>
 </body>
 </html>

@@ -2,18 +2,20 @@
   'use strict';
   const MAX_JSON = 2 * 1024 * 1024;
   const JSON_TOKENS = /"(?:\\[\s\S]|[^"\\])*"|-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?|true|false|null|[{}\[\],:]/g;
-  function formatJson(source, indent = 2) {
+  function jsonTokens(source) {
     if (typeof source !== 'string' || !source.trim()) throw new Error('请先粘贴或导入 JSON。');
-    if (source.length > MAX_JSON) throw new Error('内容超过 2 MB，请缩小文件后重试。');
+    if (source.length > MAX_JSON) throw new Error('JSON 输入超过 2,097,152 个字符，请缩小内容后重试。');
     source = source.replace(/^\uFEFF/, '');
     try { JSON.parse(source); } catch (error) {
       const position = /position (\d+)/.exec(error.message);
       const before = position ? source.slice(0, Number(position[1])).split('\n') : null;
       throw new Error('JSON 格式有误' + (before ? `，第 ${before.length} 行，第 ${before.at(-1).length + 1} 列` : '') + '。请检查引号、逗号和括号。\n' + error.message);
     }
-    if (![0, 2, 4, '\t'].includes(indent)) throw new Error('不支持的缩进。');
     // Tokenize the original text: never serialize parsed numbers (large IDs must stay exact).
-    const tokens = source.match(JSON_TOKENS);
+    return source.match(JSON_TOKENS);
+  }
+  function renderJson(tokens, indent) {
+    if (![0, 2, 4, '\t'].includes(indent)) throw new Error('不支持的缩进。');
     if (!indent) return tokens.join('');
     const unit = indent === '\t' ? '\t' : ' '.repeat(indent);
     let depth = 0;
@@ -38,22 +40,23 @@
       else if (token === ':') append(': ');
       else append(token);
     });
-    const result = output.join('');
-    if (result.length > 16 * MAX_JSON) throw new Error('格式化结果过大，请使用压缩或减少缩进。');
-    return result;
+    return output.join('');
   }
+  function formatJson(source, indent = 2) { return renderJson(jsonTokens(source), indent); }
   function isJson(source) {
     if (typeof source !== 'string' || !source.trim() || source.length > MAX_JSON) return false;
     try { JSON.parse(source.replace(/^\uFEFF/, '')); return true; } catch { return false; }
   }
-  function expandNestedJson(source, indent = 2) {
-    const compact = formatJson(source, 0);
+  function isJsonDocument(source) {
+    return typeof source === 'string' && source.length <= MAX_JSON && /^[{[]/.test(source.trimStart()) && isJson(source);
+  }
+  function expandJsonTokens(original, sourceSize) {
     let count = 0, inspectedSize = 0;
-    function expand(text, depth) {
-      inspectedSize += text.length;
+    const result = [];
+    function expand(tokens, depth, size) {
+      inspectedSize += size;
       if (inspectedSize > 16 * MAX_JSON) throw new Error('嵌套 JSON 内容过多，请分段展开。');
-      const tokens = text.match(JSON_TOKENS);
-      return tokens.map((token, index) => {
+      for (const [index, token] of tokens.entries()) {
         if (token === '{' || token === '[') {
           if (++depth > 128) throw new Error('JSON 嵌套超过 128 层，请简化后重试。');
         } else if (token === '}' || token === ']') depth--;
@@ -62,13 +65,25 @@
           const decoded = JSON.parse(token).replace(/^\uFEFF/, '');
           if (/^\s*[{[]/.test(decoded) && isJson(decoded)) {
             count++;
-            return expand(formatJson(decoded, 0), depth);
+            expand(decoded.match(JSON_TOKENS), depth, decoded.length);
+            continue;
           }
         }
-        return token;
-      }).join('');
+        result.push(token);
+      }
     }
-    return { text: formatJson(expand(compact, 0), indent), count };
+    expand(original, 0, sourceSize);
+    return { tokens: result, count };
+  }
+  function transformJson(source, indent = 2, expand = false) {
+    const original = jsonTokens(source);
+    const { tokens, count } = expand ? expandJsonTokens(original, source.length) : { tokens: original, count: 0 };
+    const compact = tokens.join('');
+    return { text: indent === 0 ? compact : renderJson(tokens, indent), compact, count };
+  }
+  function expandNestedJson(source, indent = 2) {
+    const { text, count } = transformJson(source, indent, true);
+    return { text, count };
   }
   function decodeBase64(source) {
     if (typeof source !== 'string' || !source.trim()) throw new Error('请先粘贴 Base64 内容。');
@@ -84,17 +99,26 @@
       return new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(Uint8Array.from(binary, char => char.charCodeAt(0)));
     } catch { throw new Error('解码结果不是有效的 UTF-8 文本，请确认内容是文字。'); }
   }
-  function decodeFbclid(source) {
-    if (typeof source !== 'string' || !source.trim()) throw new Error('请先粘贴 fbclid。');
-    if (source.length > MAX_JSON) throw new Error('内容超过 2 MB，请缩小后重试。');
-    const body = source.trim().slice(2).split('_aem_', 1)[0].replace(/[\t\n\f\r ]/g, '').replace(/-/g, '+').replace(/_/g, '/');
-    if (!body) throw new Error('去掉前两位和后缀后没有可解码内容，请检查 fbclid。');
-    try {
-      // Temporary byte preview: do not apply the UTF-8 or canonical-bit checks of text decoding.
-      const raw = globalThis.atob(body + '='.repeat((4 - body.length % 4) % 4));
-      return raw.replace(/[^\x20-\x7e]/g, '.');
-    } catch { throw new Error('fbclid 主体无法解码，请检查字符和长度。'); }
+  // Three UTF-8 bytes become four Base64 characters under decodeBase64's input cap.
+  const MAX_BASE64_BYTES = Math.floor(MAX_JSON / 4) * 3;
+  function encodeBase64(source, variant = 'base64') {
+    if (typeof source !== 'string' || source.length === 0) throw new Error('请输入要编码的文本。');
+    if (variant !== 'base64' && variant !== 'base64url') throw new Error('请选择 Base64 或 Base64URL 编码。');
+    const sizeError = `原文最多 ${MAX_BASE64_BYTES} 个 UTF-8 字节，以保证结果不超过 ${MAX_JSON} 个字符的解码上限。`;
+    if (source.length > MAX_BASE64_BYTES) throw new Error(sizeError);
+    if (!source.isWellFormed()) throw new Error('文本包含未配对的 Unicode 代理项，无法无损编码为 UTF-8。');
+    const bytes = new TextEncoder().encode(source);
+    if (bytes.length > MAX_BASE64_BYTES) throw new Error(sizeError);
+    let binary = '';
+    const chunkSize = 0x8000;
+    for (let i = 0; i < bytes.length; i += chunkSize) {
+      binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+    }
+    const encoded = globalThis.btoa(binary);
+    return variant === 'base64url' ? encoded.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '') : encoded;
   }
+  const BEIJING_OFFSET_MS = 8n * 60n * 60n * 1000n;
+  const DATE_LIMIT_MS = 8640000000000000n;
   function timestampToBeijing(source, unit = 'auto') {
     if (typeof source !== 'string' || !source.trim()) throw new Error('请先输入时间戳。');
     const input = source.trim();
@@ -108,13 +132,37 @@
       else throw new Error('无法自动判断单位，请手动选择“秒”或“毫秒”。');
     }
     const milliseconds = BigInt(input) * (unit === 'seconds' ? 1000n : 1n);
-    const shifted = milliseconds + 8n * 60n * 60n * 1000n;
-    const limit = 8640000000000000n;
-    if (milliseconds < -limit || milliseconds > limit || shifted < -limit || shifted > limit) {
+    const shifted = milliseconds + BEIJING_OFFSET_MS;
+    if (milliseconds < -DATE_LIMIT_MS || milliseconds > DATE_LIMIT_MS || shifted < -DATE_LIMIT_MS || shifted > DATE_LIMIT_MS) {
       throw new Error('时间戳超出可转换范围，请检查数值和单位。');
     }
     // A fixed UTC+8 offset keeps Beijing output independent of the computer's time zone.
     return { beijing: new Date(Number(shifted)).toISOString().replace('T', ' ').replace(/Z$/, ''), unit };
+  }
+  const BEIJING_TIME = /^(\d{4}|[+-]\d{6})-(\d{2})-(\d{2})(?:[ T](\d{2}):(\d{2})(?::(\d{2})(?:\.(\d{1,3}))?)?)?$/;
+  function beijingToTimestamp(source, unit = 'seconds') {
+    const input = typeof source === 'string' ? source.trim() : '';
+    if (!input) throw new Error('请先输入北京时间。');
+    if (unit !== 'seconds' && unit !== 'milliseconds') throw new Error('请选择秒或毫秒。');
+    const parts = BEIJING_TIME.exec(input);
+    if (!parts || parts[1] === '-000000') {
+      throw new Error('北京时间格式有误，请使用 YYYY-MM-DD 或 YYYY-MM-DD HH:mm[:ss[.SSS]]，日期和时间可用 T 分隔，不带时区。');
+    }
+    const [, yearText, monthText, dayText, hourText = '00', minuteText = '00', secondText = '00', fraction = ''] = parts;
+    const year = Number(yearText), month = Number(monthText), day = Number(dayText);
+    const hour = Number(hourText), minute = Number(minuteText), second = Number(secondText);
+    if (hour > 23 || minute > 59 || second > 59) throw new Error('北京时间的时分秒无效。');
+    // UTC setters preserve years 0000–0099 and avoid the computer's time zone.
+    const clock = new Date(0);
+    clock.setUTCFullYear(year, month - 1, day);
+    const shifted = clock.setUTCHours(hour, minute, second, Number(fraction.padEnd(3, '0')));
+    if (!Number.isFinite(shifted)) throw new Error('北京时间超出可转换范围。');
+    if (clock.getUTCMonth() + 1 !== month || clock.getUTCDate() !== day) throw new Error('北京时间的日期无效。');
+    let timestamp = BigInt(shifted) - BEIJING_OFFSET_MS;
+    if (timestamp < -DATE_LIMIT_MS || timestamp > DATE_LIMIT_MS) throw new Error('北京时间超出可转换范围。');
+    // BigInt division truncates toward zero; round negative fractional seconds down.
+    if (unit === 'seconds') timestamp = timestamp / 1000n - (timestamp % 1000n < 0n ? 1n : 0n);
+    return { timestamp: timestamp.toString(), unit };
   }
   function randomIndex(bound) {
     const limit = 4294967296 - (4294967296 % bound);
@@ -142,7 +190,7 @@
     if (!Number.isInteger(count) || count < 1 || count > 20) throw new Error('生成数量须为 1–20 的整数。');
     return Array.from({ length: count }, () => globalThis.crypto.randomUUID());
   }
-  const api = { formatJson, isJson, expandNestedJson, decodeBase64, decodeFbclid, timestampToBeijing, generatePasswords, generateUuids, CHARSETS, MAX_JSON };
+  const api = { formatJson, isJson, isJsonDocument, expandNestedJson, transformJson, decodeBase64, encodeBase64, timestampToBeijing, beijingToTimestamp, generatePasswords, generateUuids, CHARSETS, MAX_JSON };
   if (typeof module !== 'undefined') module.exports = api;
   else root.ToolCore = api;
 })(globalThis);

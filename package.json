@@ -2,7 +2,7 @@
   "name": "ssx-toolbox",
   "version": "1.0.0",
   "private": true,
-  "description": "本地桌面工具箱：JSON、密码与 UUID、Base64 解码、时间戳转北京时间",
+  "description": "本地桌面工具箱：JSON、密码与 UUID、Base64 编解码、Unix 时间戳与北京时间互转",
   "author": "ssx",
   "main": "desktop/main.cjs",
   "scripts": {
@@ -11,8 +11,7 @@
     "pack": "electron-packager . SsxToolbox --platform=win32 --arch=x64 --out=release --overwrite --asar --icon=assets/icon.ico --ignore=\"^/(release|tests|scripts|\\.impeccable|.*\\.md$)\"",
     "test:desktop": "node scripts/test-desktop.cjs",
     "test:startup": "node scripts/test-startup.cjs",
-    "test:json-nested": "node scripts/test-json-nested.cjs",
-    "test:fbclid": "node scripts/test-fbclid.cjs"
+    "test:json-nested": "node scripts/test-json-nested.cjs"
   },
   "devDependencies": {
     "@electron/packager": "20.3.0",

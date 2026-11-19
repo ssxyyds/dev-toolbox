@@ -12,7 +12,7 @@ const fs = require('node:fs/promises');
     const errors = []; page.on('pageerror', error => errors.push(error.message));
     await page.waitForSelector('#search');
     await page.locator('[data-tool=json]').click();
-    const inner = '{"url":"../tracking/events","data":{"payload":{"fbclid":"example"},"event_name":"landing_page_continue_click"},"response":{},"id":9223372036854775807}';
+    const inner = '{"url":"../tracking/events","data":{"payload":{"clickId":"example"},"event_name":"landing_page_continue_click"},"response":{},"id":9223372036854775807}';
     const source = JSON.stringify({ requestId: 'request-test', method: 'POST', path: '/test/report', body: inner, bodyEncoding: 'utf-8' });
     await page.locator('#json-output').evaluate((editor, text) => {
       const data = new DataTransfer(); data.setData('text/plain', text);

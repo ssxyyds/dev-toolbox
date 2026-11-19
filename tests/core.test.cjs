@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { formatJson, isJson, expandNestedJson, decodeBase64, decodeFbclid, timestampToBeijing, generatePasswords, generateUuids, CHARSETS, MAX_JSON } = require('../src/core.js');
+const { formatJson, isJson, isJsonDocument, expandNestedJson, transformJson, decodeBase64, encodeBase64, timestampToBeijing, beijingToTimestamp, generatePasswords, generateUuids, CHARSETS, MAX_JSON } = require('../src/core.js');
 test('JSON retains large numbers, duplicate keys, exponent and escaped strings', () => {
   const source = '{"id":9223372036854775807,"tiny":1.20e-123,"id":-0,"s":"a\\\"b\\n","empty":[{},[]]}';
   const result = formatJson(source, 4);
@@ -17,10 +17,10 @@ test('JSON supports primitive values, BOM, tabs, and reports malformed input', (
 });
 
 test('Nested JSON expands request bodies and recursively expands object and array strings', () => {
-  const source = JSON.stringify({ requestId: 'request-test', method: 'POST', path: '/test/report', body: JSON.stringify({ url: '../tracking/events', data: { payload: JSON.stringify({ fbclid: 'example' }), event_name: 'landing_page_continue_click' }, response: '{}' }), bodyEncoding: 'utf-8' });
+  const source = JSON.stringify({ requestId: 'request-test', method: 'POST', path: '/test/report', body: JSON.stringify({ url: '../tracking/events', data: { payload: JSON.stringify({ clickId: 'example' }), event_name: 'landing_page_continue_click' }, response: '{}' }), bodyEncoding: 'utf-8' });
   const result = expandNestedJson(source);
   assert.equal(result.count, 3);
-  assert.deepEqual(JSON.parse(result.text).body, { url: '../tracking/events', data: { payload: { fbclid: 'example' }, event_name: 'landing_page_continue_click' }, response: {} });
+  assert.deepEqual(JSON.parse(result.text).body, { url: '../tracking/events', data: { payload: { clickId: 'example' }, event_name: 'landing_page_continue_click' }, response: {} });
   assert.match(result.text, /"body": \{\n    "url"/);
   assert.equal(typeof JSON.parse(formatJson(source)).body, 'string');
   const nestedArray = expandNestedJson(JSON.stringify(['[1,2,{"nested":"{}"}]']));
@@ -44,12 +44,29 @@ test('Nested JSON preserves exact large numbers, duplicate keys, escapes and ord
 test('Nested JSON rejects malformed outer input and limits combined structural depth', () => {
   assert.throws(() => expandNestedJson('{"body":}'), /JSON 格式有误/);
   assert.throws(() => expandNestedJson(String.raw`{"body":"{\\"url\\":\\"test\\"}"}`), /JSON 格式有误/);
-  assert.throws(() => expandNestedJson(' '.repeat(MAX_JSON + 1) + '{}'), /2 MB/);
+  assert.throws(() => expandNestedJson(' '.repeat(MAX_JSON + 1) + '{}'), /2,097,152 个字符/);
   assert.throws(() => expandNestedJson('{}', 3), /缩进/);
   const atLimit = '['.repeat(127) + JSON.stringify('{}') + ']'.repeat(127);
   assert.equal(expandNestedJson(atLimit, 0).count, 1);
   const tooDeep = '['.repeat(128) + JSON.stringify('{}') + ']'.repeat(128);
   assert.throws(() => expandNestedJson(tooDeep, 0), /128/);
+});
+
+test('Auto-open accepts JSON objects and arrays without hijacking scalar values', () => {
+  for (const source of ['{}', ' \r\n []', '\uFEFF{"x":1}']) assert.equal(isJsonDocument(source), true);
+  for (const source of ['1700000000123', 'true', 'null', '"text"', '{"x":}', '[1,]', null]) assert.equal(isJsonDocument(source), false);
+  assert.equal(isJson('1700000000123'), true);
+});
+
+test('Formatting keeps a compact representation so large displayed results can be transformed again', () => {
+  const source = '['.repeat(64) + '0,'.repeat(8399) + '0' + ']'.repeat(64);
+  const result = transformJson(source, 4);
+  assert.ok(result.text.length > MAX_JSON);
+  assert.equal(result.compact, source);
+  assert.equal(transformJson(result.compact, 0).text, source);
+  assert.ok(transformJson(result.compact, 2).text.length < MAX_JSON);
+  const expanded = transformJson('{"body":"{\\"id\\":9223372036854775807}"}', 2, true);
+  assert.deepEqual({ compact: expanded.compact, count: expanded.count }, { compact: '{"body":{"id":9223372036854775807}}', count: 1 });
 });
 test('Every password follows selected classes, count, length and exclusions', () => {
   for (let mask = 1; mask < 16; mask++) {
@@ -93,26 +110,44 @@ test('Base64 rejects invalid alphabets, padding, incomplete data, binary and ove
   assert.throws(() => decodeBase64('A'.repeat(MAX_JSON + 1)), /2 MB/);
 });
 
-test('Temporary fbclid rule matches the supplied Python preview for the real TDEX sample', () => {
-  const source = 'IwVERFWAVctuVleHRuA2FlbQEwAHBkb2YFZmRpZBZRHYGLzeAgLriTZQX8mrRHjlzrtr1sYWRpZAAAL9vpcpVwc3J0YwZhcHBfaWQKNjYyODU2ODM3OQABH0pmP6fQsxo8PQf0twGCpAJ1d7myiHMv2GxoVeTFM0-T6c1LAi7g0oZT0lFX_aem_ORqRB734sDQON0_9l82-nA';
-  const expected = 'TDEX.\\..extn.aem.0.pdof.fdid.Q..... ...e....G.\\...ladid../..r.psrtc.app_id.6628568379...Jf?....<=.......uw...s/.lhU..3O...K.....S.QW';
-  assert.equal(decodeFbclid(source), expected);
-  assert.equal(decodeFbclid('PA' + source.slice(2)), expected);
-  assert.equal(decodeFbclid(source.split('_aem_')[0]), expected);
-  assert.throws(() => decodeBase64(source), /Base64/);
+test('Base64 encoding uses standard padding or the unpadded URL-safe alphabet', () => {
+  for (const [source, standard, urlSafe] of [
+    ['f', 'Zg==', 'Zg'], ['fo', 'Zm8=', 'Zm8'], ['foo', 'Zm9v', 'Zm9v'],
+    ['ab>ab?!', 'YWI+YWI/IQ==', 'YWI-YWI_IQ']
+  ]) {
+    assert.equal(encodeBase64(source), standard);
+    assert.equal(encodeBase64(source, 'base64url'), urlSafe);
+    assert.equal(decodeBase64(urlSafe), source);
+  }
 });
 
-test('Temporary fbclid preview preserves printable ASCII and replaces every other byte', () => {
-  const raw = Buffer.from(Array.from({ length: 256 }, (_, i) => i));
-  const expected = '.'.repeat(32) + Array.from({ length: 95 }, (_, i) => String.fromCharCode(i + 32)).join('') + '.'.repeat(129);
-  const encoded = raw.toString('base64url');
-  for (const body of [encoded, encoded + '==', encoded.match(/.{1,4}/g).join('\n')]) {
-    assert.equal(decodeFbclid('Iw' + body + '_aem_ignored'), expected);
+test('UTF-8 Base64 encoding preserves Unicode, BOM, line endings and whitespace exactly', () => {
+  for (const source of ['你好，Ssx 工具箱 👋', '\uFEFF', '\uFEFF保留开头标记', '\0line\r\nline\n', ' \t\r\n　']) {
+    for (const variant of ['base64', 'base64url']) {
+      const encoded = encodeBase64(source, variant);
+      assert.equal(encoded, Buffer.from(source, 'utf8').toString(variant));
+      assert.equal(decodeBase64(encoded), source);
+    }
   }
-  assert.equal(decodeFbclid('IwZh'), 'f');
-  assert.throws(() => decodeBase64('Zh=='), /Base64/);
-  for (const source of ['', ' ', 'Iw', 'PA_aem_suffix', 'IwA', 'Iw???', 'IwZ=g=']) assert.throws(() => decodeFbclid(source), /fbclid/);
-  assert.throws(() => decodeFbclid('Iw' + 'A'.repeat(MAX_JSON)), /2 MB/);
+});
+
+test('Base64 encoding rejects empty or non-string text, invalid variants and unpaired surrogates', () => {
+  for (const source of ['', null, undefined, 123, false, {}]) assert.throws(() => encodeBase64(source), /文本/);
+  for (const variant of ['', 'url', 'BASE64', null, 1]) assert.throws(() => encodeBase64('text', variant), /Base64/);
+  for (const source of ['\uD800', '\uDC00', 'a\uD800b']) assert.throws(() => encodeBase64(source), /Unicode/);
+});
+
+test('Base64 encoding enforces the UTF-8 byte limit needed to decode either variant', () => {
+  const maxBytes = MAX_JSON / 4 * 3;
+  const sizeError = new RegExp(`${maxBytes} 个 UTF-8 字节.*${MAX_JSON} 个字符`);
+  const source = '界'.repeat(maxBytes / 3);
+  for (const variant of ['base64', 'base64url']) {
+    const encoded = encodeBase64(source, variant);
+    assert.equal(encoded.length, MAX_JSON);
+    assert.equal(decodeBase64(encoded), source);
+    assert.throws(() => encodeBase64(source + 'a', variant), sizeError);
+  }
+  assert.throws(() => encodeBase64('a'.repeat(maxBytes + 1)), sizeError);
 });
 
 test('Unix seconds and milliseconds convert to fixed Beijing time, including zero and negative values', () => {
@@ -129,6 +164,7 @@ test('Unix seconds and milliseconds convert to fixed Beijing time, including zer
     for (const timezone of ['UTC', 'America/New_York', 'Asia/Shanghai']) {
       process.env.TZ = timezone;
       assert.equal(timestampToBeijing('1700000000123').beijing, '2023-11-15 06:13:20.123');
+      assert.deepEqual(beijingToTimestamp('2023-11-15 06:13:20.123', 'milliseconds'), { timestamp: '1700000000123', unit: 'milliseconds' });
     }
   } finally { if (original === undefined) delete process.env.TZ; else process.env.TZ = original; }
 });
@@ -143,4 +179,50 @@ test('Timestamp conversion rejects invalid or ambiguous units and values outside
     assert.throws(() => timestampToBeijing(input, 'milliseconds'), /范围/);
   }
   assert.equal(timestampToBeijing('8639999971200000', 'milliseconds').beijing, '+275760-09-13 00:00:00.000');
+});
+
+test('Beijing date and time use UTC+8, default to seconds and accept leap days', () => {
+  assert.deepEqual(beijingToTimestamp(' 1970-01-01 08:00 '), { timestamp: '0', unit: 'seconds' });
+  assert.deepEqual(beijingToTimestamp('1970-01-01'), { timestamp: '-28800', unit: 'seconds' });
+  assert.deepEqual(beijingToTimestamp('2000-02-29T08:00:00', 'seconds'), { timestamp: '951782400', unit: 'seconds' });
+});
+
+test('Beijing timestamps preserve 1–3 fractional digits and floor seconds before and after the epoch', () => {
+  for (const [time, milliseconds, seconds] of [
+    ['07:59:58.999', '-1001', '-2'], ['07:59:59.999', '-1', '-1'], ['07:59:59', '-1000', '-1'],
+    ['08:00:00.1', '100', '0'], ['08:00:00.01', '10', '0'], ['08:00:00.001', '1', '0'],
+    ['08:00:01.999', '1999', '1']
+  ]) {
+    const source = `1970-01-01T${time}`;
+    assert.deepEqual(beijingToTimestamp(source, 'milliseconds'), { timestamp: milliseconds, unit: 'milliseconds' });
+    assert.deepEqual(beijingToTimestamp(source), { timestamp: seconds, unit: 'seconds' });
+  }
+});
+
+test('Beijing conversion rejects invalid dates, times, syntax, timezone suffixes and units', () => {
+  for (const source of [
+    '', ' \r\n ', null, 0, new Date(0), '1900-02-29', '2023-02-29', '2024-04-31',
+    '2024-00-01', '2024-13-01', '2024-01-00', '2024-01-32', '-000000-01-01', '10000-01-01',
+    '2024-1-01', '2024-01-01 0:00', '2024-01-01 24:00', '2024-01-01 00:60', '2024-01-01 00:00:60',
+    '2024-01-01 00:00.1', '2024-01-01 00:00:00.', '2024-01-01 00:00:00.1234',
+    '2024-01-01Z', '2024-01-01T00:00:00Z', '2024-01-01T00:00:00+08:00', '2024-01-01 00:00 UTC'
+  ]) assert.throws(() => beijingToTimestamp(source), /北京时间/, String(source));
+  for (const unit of ['auto', 'minutes', '', null, 1]) {
+    assert.throws(() => beijingToTimestamp('2024-01-01', unit), /秒或毫秒/);
+  }
+});
+
+test('Beijing milliseconds round-trip at Date bounds and with ISO extended or early years', () => {
+  const unit = 'milliseconds';
+  for (const timestamp of ['-8640000000000000', '-1', '0', '1700000000123', '8639999971200000']) {
+    const { beijing } = timestampToBeijing(timestamp, unit);
+    assert.deepEqual(beijingToTimestamp(beijing, unit), { timestamp, unit });
+  }
+  for (const beijing of ['-000004-02-29 00:00:00.000', '0000-02-29 00:00:00.000', '0099-01-01 00:00:00.000', '+010000-01-01 00:00:00.000']) {
+    const { timestamp } = beijingToTimestamp(beijing, unit);
+    assert.deepEqual(timestampToBeijing(timestamp, unit), { beijing, unit });
+  }
+  for (const beijing of ['-271821-04-19', '-271821-04-20 07:59:59.999', '+275760-09-13 00:00:00.001', '+999999-12-31']) {
+    assert.throws(() => beijingToTimestamp(beijing, unit), /范围/, beijing);
+  }
 });
