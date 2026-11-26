@@ -17,5 +17,8 @@
     "@electron/packager": "20.3.0",
     "electron": "45.0.0",
     "playwright": "1.62.1"
+  },
+  "dependencies": {
+    "markdown-it": "15.0.3"
   }
 }

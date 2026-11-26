@@ -7,6 +7,8 @@
   <title>Ssx 工具箱</title>
   <link rel="stylesheet" href="styles.css">
   <script src="core.js" defer></script>
+  <script src="../node_modules/markdown-it/dist/browser/markdown-it.umd.min.js" defer></script>
+  <script src="notepad.js" defer></script>
   <script src="app.js" defer></script>
 </head>
 <body>
@@ -21,6 +23,7 @@
     <symbol id="icon-json" viewBox="0 0 24 24"><path d="M8.5 4H7a2 2 0 0 0-2 2v3a3 3 0 0 1-2 3 3 3 0 0 1 2 3v3a2 2 0 0 0 2 2h1.5M15.5 4H17a2 2 0 0 1 2 2v3a3 3 0 0 0 2 3 3 3 0 0 0-2 3v3a2 2 0 0 1-2 2h-1.5M10 10h4m-4 4h4"/></symbol>
     <symbol id="icon-key" viewBox="0 0 24 24"><circle cx="8.5" cy="8.5" r="4.5"/><path d="m12 12 7.5 7.5m-3-3 2.5-2.5"/></symbol>
     <symbol id="icon-code" viewBox="0 0 24 24"><path d="m8 7-5 5 5 5m8-10 5 5-5 5m-2-13-4 16"/></symbol>
+    <symbol id="icon-note" viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 8h6M9 12h6M9 16h3"/></symbol>
     <symbol id="icon-time" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 7v5l3.2 2"/></symbol>
     <symbol id="icon-copy" viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 4H6a2 2 0 0 0-2 2v10"/></symbol>
     <symbol id="icon-check" viewBox="0 0 24 24"><path d="m5 12 4.5 4.5L19 7"/></symbol>
@@ -77,6 +80,11 @@
             <span class="tool-icon"><svg aria-hidden="true"><use href="#icon-time"/></svg></span>
             <span class="tool-info"><strong id="tool-name-timestamp">时间戳转换</strong><span id="tool-desc-timestamp">Unix 时间戳与北京时间互转</span></span>
             <span class="tool-key" aria-hidden="true">TIME</span><svg class="tool-next" aria-hidden="true"><use href="#icon-next"/></svg>
+          </button>
+          <button id="tool-option-note" class="tool-row" data-tool="note" type="button" role="option" aria-selected="false" aria-labelledby="tool-name-note" aria-describedby="tool-desc-note" tabindex="-1">
+            <span class="tool-icon"><svg aria-hidden="true"><use href="#icon-note"/></svg></span>
+            <span class="tool-info"><strong id="tool-name-note">记事本</strong><span id="tool-desc-note">随手记，支持 Markdown 预览</span></span>
+            <span class="tool-key" aria-hidden="true">MD</span><svg class="tool-next" aria-hidden="true"><use href="#icon-next"/></svg>
           </button>
         </div>
         <div id="no-results" class="empty search-empty" hidden><strong>没有找到工具</strong><span>试试 JSON、UUID、Base64 或时间戳。</span></div>
@@ -168,6 +176,15 @@
             </div>
           </div>
           <p id="base64-message" class="message" role="status" hidden></p>
+        </div>
+
+        <div id="note-tool" class="tool-panel" hidden>
+          <div class="editor">
+            <div class="editor-label"><label for="note-input">Markdown</label><button id="note-toggle" class="text-button" aria-controls="note-preview" aria-expanded="false">预览</button></div>
+            <textarea id="note-input" aria-label="笔记正文" spellcheck="false" placeholder="从这里开始写…"></textarea>
+            <article id="note-preview" tabindex="0" aria-label="Markdown 预览" hidden></article>
+            <div id="note-error" class="editor-bottom" hidden><span id="note-status" class="note-error" role="alert"></span><button id="note-retry" class="text-button">重试</button></div>
+          </div>
         </div>
 
         <div id="timestamp-tool" class="tool-panel" hidden>

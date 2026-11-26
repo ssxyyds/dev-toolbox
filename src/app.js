@@ -14,6 +14,7 @@ const TOOLS = {
   json: { aliases: 'json 格式化 压缩 校验 展开 嵌套 geshihua', focus: 'json-output', shortcut: ['Ctrl + Enter', '格式化'] },
   password: { aliases: 'password pass pwd 密码 随机 mima suiji uuid guid 唯一标识', focus: () => $('generator-mode').value === 'uuid' ? 'count' : 'length', shortcut: ['Enter', '生成'] },
   base64: { aliases: 'base64编码 base64解码 base64url b64 utf-8 jiema bianma', focus: 'base64-input', shortcut: ['Ctrl + Enter', '转换'] },
+  note: { aliases: '笔记 便签 markdown md note notepad jishiben biji', focus: () => notepad.focusId(), shortcut: ['Ctrl + Enter', '编辑 / 预览'] },
   timestamp: { aliases: 'timestamp time unix 时间戳转北京时间 北京时间转时间戳 日期转时间戳 日期时间 shijian shijianchuo beijing', focus: 'timestamp-input', shortcut: ['Enter', '转换'] }
 };
 const rows = [...document.querySelectorAll('.tool-row')];
@@ -137,6 +138,7 @@ function openTool(tool, source) {
   $('workspace').hidden = false;
   for (const name of Object.keys(TOOLS)) $(`${name}-tool`).hidden = name !== tool;
   $('tool-title').textContent = $(`tool-name-${tool}`).textContent;
+  if (tool === 'note') notepad.open();
   if (openingFromLauncher) native?.resize(true);
   if (selectUuid && $('generator-mode').value !== 'uuid') {
     $('generator-mode').value = 'uuid';
@@ -480,7 +482,7 @@ document.addEventListener('keydown', event => {
     else native?.hide();
   } else if (command && event.key === 'Enter' && activeTool) {
     event.preventDefault();
-    ({ json: processJson, base64: processBase64, timestamp: processTimestamp, password: submitGenerator })[activeTool]();
+    ({ json: processJson, base64: processBase64, timestamp: processTimestamp, password: submitGenerator, note: notepad.toggle })[activeTool]();
   }
 });
 

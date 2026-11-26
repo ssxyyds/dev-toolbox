@@ -323,3 +323,22 @@ footer {
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
+
+/* A single writing surface; preview uses the same space as the source. */
+#note-input, #note-preview { height: max(210px, calc(100dvh - 242px)); }
+#note-preview { overflow: auto; overflow-wrap: anywhere; padding: 14px 18px; line-height: 1.7; }
+#note-preview > :first-child { margin-top: 0; }
+#note-preview :is(p, ul, ol, pre, table, blockquote) { margin: .65em 0; }
+#note-preview :is(h1, h2, h3) { margin: .9em 0 .35em; line-height: 1.35; }
+#note-preview h2 { font-size: 19px; }
+#note-preview blockquote { padding-left: 12px; border-left: 2px solid var(--line-strong); color: var(--muted); }
+#note-preview code { padding: 1px 4px; background: var(--well); font: .93em var(--mono); }
+#note-preview pre { padding: 10px 12px; overflow: auto; background: var(--well); border-radius: var(--radius-sm); }
+#note-preview pre code { padding: 0; }
+#note-preview table { border-collapse: collapse; }
+#note-preview :is(th, td) { border: 1px solid var(--line); padding: 3px 8px; }
+#note-preview .note-align-left { text-align: left; }
+#note-preview .note-align-center { text-align: center; }
+#note-preview .note-align-right { text-align: right; }
+.note-link { color: var(--accent-ink); }
+.note-error { color: var(--danger); }

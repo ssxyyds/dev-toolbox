@@ -1,13 +1,14 @@
 const { app, BrowserWindow, globalShortcut, clipboard, Tray, Menu, ipcMain, screen, dialog, nativeTheme } = require('electron');
 const fs = require('node:fs/promises');
 const path = require('node:path');
+const { createNoteStore } = require('./notepad.cjs');
 const { isJsonDocument, MAX_JSON } = require('../src/core.js');
 const { createStartup, STARTUP_ARG } = require('./startup.cjs');
 let window, tray, quitting = false, shortcutReady = false, wakeSequence = 0;
 const startupLaunch = process.argv.includes(STARTUP_ARG);
 const testing = process.env.TOOLBOX_TEST === '1';
 const accelerator = testing ? 'Control+Alt+Shift+F10' : 'Control+Space';
-const compactSize = { width: 720, height: 540 };
+const compactSize = { width: 720, height: 580 };
 const workspaceSize = { width: 1060, height: 740 };
 if (testing) app.setPath('userData', path.join(app.getPath('temp'), 'ssx-toolbox-test-' + process.pid));
 const lock = testing || app.requestSingleInstanceLock();
@@ -15,6 +16,7 @@ if (!lock) app.quit();
 else {
   let windowReady = false, pendingWake = startupLaunch ? null : false;
   let expanded = false, boundsExpanded = false;
+  const notes = createNoteStore(app.getPath('userData'));
   const sizes = [compactSize, workspaceSize];
   function dimensions(size, area) {
     return { width: Math.max(380, Math.min(size.width, area.width - 16)), height: Math.max(400, Math.min(size.height, area.height - 16)) };
@@ -84,6 +86,14 @@ else {
       expanded = requested;
       applyWindowSize();
     });
+    ipcMain.handle('note:read', event => {
+      if (!trusted(event)) throw new Error('无法读取笔记。');
+      return notes.read();
+    });
+    ipcMain.handle('note:write', (event, text) => {
+      if (!trusted(event) || typeof text !== 'string') throw new Error('无法保存笔记。');
+      return notes.write(text);
+    });
     ipcMain.handle('clipboard:copy', async (event, text) => {
       if (!trusted(event) || typeof text !== 'string' || text.length > MAX_JSON * 16) throw new Error('无法复制此内容。');
       await clipboard.writeText(text); return true;
@@ -117,7 +127,11 @@ else {
   });
   app.on('second-instance', (_event, commandLine) => { if (!commandLine.includes(STARTUP_ARG)) wake(false); });
   app.on('activate', () => wake(false));
-  app.on('before-quit', () => { quitting = true; });
+  app.on('before-quit', event => {
+    if (!notes.writing) { quitting = true; return; }
+    event.preventDefault();
+    notes.writing.then(() => app.quit(), () => { window?.show(); });
+  });
   app.on('will-quit', () => { globalShortcut.unregisterAll(); tray?.destroy(); });
   app.on('window-all-closed', () => {});
 }
