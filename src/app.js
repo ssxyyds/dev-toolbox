@@ -9,6 +9,11 @@ const native = window.desktop;
 const MAIN = $('main');
 const SEARCH = $('search');
 const JSON_EDITOR = $('json-output');
+const jsonColors = attachJsonColors(JSON_EDITOR, $('json-colors'), {
+  gutter: $('json-gutter'),
+  highlight: $('json-node-highlight'),
+  onToggleNode: toggleJsonNode
+});
 const BASE64_EXAMPLE = '你好，Ssx 工具箱 👋';
 const TOOLS = {
   json: { aliases: 'json 格式化 压缩 校验 展开 嵌套 geshihua', focus: 'json-output', shortcut: ['Ctrl + Enter', '格式化'] },
@@ -20,7 +25,6 @@ const TOOLS = {
 const rows = [...document.querySelectorAll('.tool-row')];
 const number = new Intl.NumberFormat('zh-CN');
 let activeTool = null, selected = 0, toastTimer;
-let clipboardJson = null;
 let jsonDocument = null, beforeJsonExpansion = null, jsonRevision = 0;
 let base64RawInput = null, base64Result = null;
 let timestampMode = 'to-date';
@@ -139,7 +143,7 @@ function openTool(tool, source) {
   for (const name of Object.keys(TOOLS)) $(`${name}-tool`).hidden = name !== tool;
   $('tool-title').textContent = $(`tool-name-${tool}`).textContent;
   if (tool === 'note') notepad.open();
-  if (openingFromLauncher) native?.resize(true);
+  native?.resize(tool === 'json' || tool === 'base64' || tool === 'note');
   if (selectUuid && $('generator-mode').value !== 'uuid') {
     $('generator-mode').value = 'uuid';
     updateGeneratorMode();
@@ -150,25 +154,13 @@ function openTool(tool, source) {
   focusCurrent();
 }
 
-function dismissClipboard() {
-  clipboardJson = null;
-  $('clipboard-offer').hidden = true;
-}
-
 function jsonFromClipboard(source) {
   if (source.replace(/\r\n?/g, '\n') === JSON_EDITOR.value) return;
-  if (!JSON_EDITOR.value && (!activeTool || activeTool === 'json')) {
-    dismissClipboard();
-    openTool('json', source);
-    return;
-  }
-  clipboardJson = source;
-  $('clipboard-detail').textContent = JSON_EDITOR.value ? '载入会替换 JSON 编辑区的内容。' : '可载入 JSON 工具。';
-  $('clipboard-offer').hidden = false;
-  MAIN.scrollTop = 0;
+  if (!JSON_EDITOR.value && (!activeTool || activeTool === 'json')) openTool('json', source);
 }
 
 function describeJson(content) {
+  jsonColors.refresh();
   let lines = 1;
   for (let i = content.indexOf('\n'); i !== -1; i = content.indexOf('\n', i + 1)) lines++;
   $('output-count').textContent = content ? `${number.format(lines)} 行 · ${number.format(content.length)} 字符` : '等待输入';
@@ -184,9 +176,6 @@ function updateJsonInput() {
   JSON_EDITOR.removeAttribute('aria-invalid');
   describeJson(JSON_EDITOR.value);
   message('json-message', JSON_EDITOR.value ? '待格式化' : '');
-  if (clipboardJson !== null) {
-    $('clipboard-detail').textContent = JSON_EDITOR.value ? '载入会替换 JSON 编辑区的内容。' : '可载入 JSON 工具。';
-  }
 }
 
 function showJsonResult(text) {
@@ -201,9 +190,43 @@ function showJsonResult(text) {
   describeJson(JSON_EDITOR.value);
 }
 
+function currentJsonIndent() {
+  return $('indent').value === 'tab' ? '\t' : Number($('indent').value);
+}
+
+function applyJsonNodeEdit(start, end, replacement, selectionMode = 'start') {
+  const text = JSON_EDITOR.value;
+  const compact = jsonDocument?.text === text ? jsonDocument.compact : transformJson(text, 0).compact;
+  const top = JSON_EDITOR.scrollTop, left = JSON_EDITOR.scrollLeft;
+  JSON_EDITOR.setRangeText(replacement, start, end, selectionMode);
+  showJsonResult(JSON_EDITOR.value);
+  jsonDocument = { text: JSON_EDITOR.value, compact };
+  jsonRevision++;
+  JSON_EDITOR.focus({ preventScroll: true });
+  JSON_EDITOR.scrollTop = top;
+  JSON_EDITOR.scrollLeft = left;
+  message('json-message', '');
+}
+
+function toggleJsonNode(node) {
+  const text = JSON_EDITOR.value;
+  try {
+    if (node.multiline) {
+      const compacted = ToolCore.compactJsonNode(text, node.start, node.end);
+      if (!compacted) return;
+      applyJsonNodeEdit(compacted.start, compacted.end, compacted.compact, 'start');
+    } else {
+      const formatted = ToolCore.formatJsonNode(text, node.start, node.end, currentJsonIndent());
+      applyJsonNodeEdit(formatted.start, formatted.end, formatted.text, 'start');
+    }
+  } catch (error) {
+    message('json-message', error.message, 'error');
+  }
+}
+
 function processJson(compact = false, expand = false) {
   try {
-    const indent = $('indent').value === 'tab' ? '\t' : Number($('indent').value);
+    const indent = currentJsonIndent();
     const displayed = JSON_EDITOR.value;
     // Reuse the compact representation when the displayed result exceeds the raw input cap.
     const source = jsonDocument?.text === displayed ? jsonDocument.compact : displayed;
@@ -435,20 +458,13 @@ SEARCH.addEventListener('keydown', event => {
   }
 });
 
-$('load-clipboard').onclick = () => {
-  const source = clipboardJson;
-  dismissClipboard();
-  if (source !== null) openTool('json', source);
-};
-$('dismiss-clipboard').onclick = () => { dismissClipboard(); focusCurrent(); };
-
 document.addEventListener('paste', event => {
   const data = event.clipboardData;
   if (!data?.types.includes('text/plain')) return;
   const source = data.getData('text/plain');
   if (event.target === SEARCH && isJsonDocument(source)) {
     event.preventDefault();
-    jsonFromClipboard(source);
+    openTool('json', source);
   } else if (event.target === JSON_EDITOR) {
     event.preventDefault();
     const { selectionStart, selectionEnd } = JSON_EDITOR;
@@ -488,7 +504,21 @@ document.addEventListener('keydown', event => {
 
 $('back').onclick = home;
 $('format').onclick = () => processJson();
-$('minify').onclick = () => processJson(true);
+$('minify').onclick = () => {
+  if (JSON_EDITOR.selectionStart === JSON_EDITOR.selectionEnd) return processJson(true);
+  const text = JSON_EDITOR.value;
+  try {
+    if (jsonDocument?.text !== text) transformJson(text, 0);
+    const node = ToolCore.compactJsonNode(text, JSON_EDITOR.selectionStart, JSON_EDITOR.selectionEnd);
+    if (!node) {
+      message('json-message', '请选择对象或数组。');
+      return;
+    }
+    applyJsonNodeEdit(node.start, node.end, node.compact, 'select');
+  } catch (error) {
+    message('json-message', error.message, 'error');
+  }
+};
 $('expand-json').onclick = () => processJson(false, true);
 $('undo-expand').onclick = () => {
   if (!beforeJsonExpansion) return;
@@ -501,7 +531,7 @@ $('undo-expand').onclick = () => {
   message('json-message', '已撤销展开', 'success');
 };
 JSON_EDITOR.addEventListener('input', updateJsonInput);
-$('json-wrap').onchange = () => { JSON_EDITOR.wrap = $('json-wrap').checked ? 'soft' : 'off'; };
+$('json-wrap').onchange = () => { JSON_EDITOR.wrap = $('json-wrap').checked ? 'soft' : 'off'; jsonColors.sync(); };
 $('indent').onchange = () => { if (JSON_EDITOR.value.trim()) processJson(); };
 $('clear').onclick = () => { replaceJson('', false); JSON_EDITOR.focus(); };
 $('example').onclick = () => replaceJson('{"name":"Ssx 工具箱","tools":["JSON 格式化","随机密码"],"local":true,"longId":9223372036854775807}');

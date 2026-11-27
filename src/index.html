@@ -9,6 +9,7 @@
   <script src="core.js" defer></script>
   <script src="../node_modules/markdown-it/dist/browser/markdown-it.umd.min.js" defer></script>
   <script src="notepad.js" defer></script>
+  <script src="json-colors.js" defer></script>
   <script src="app.js" defer></script>
 </head>
 <body>
@@ -28,7 +29,8 @@
     <symbol id="icon-copy" viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 4H6a2 2 0 0 0-2 2v10"/></symbol>
     <symbol id="icon-check" viewBox="0 0 24 24"><path d="m5 12 4.5 4.5L19 7"/></symbol>
     <symbol id="icon-warning" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 8v4m0 4h.01"/></symbol>
-    <symbol id="icon-clipboard" viewBox="0 0 24 24"><rect x="8" y="3" width="8" height="4" rx="1.5"/><path d="M8 5H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M8 12h8m-8 4h6"/></symbol>
+    <symbol id="icon-node-compact" viewBox="0 0 16 16"><path d="M4.25 6.25 8 10l3.75-3.75"/></symbol>
+    <symbol id="icon-node-expand" viewBox="0 0 16 16"><path d="M6.25 4.25 10 8l-3.75 3.75"/></symbol>
   </svg>
 
   <header class="titlebar">
@@ -42,12 +44,6 @@
 
   <main id="main">
     <div class="content">
-      <aside id="clipboard-offer" class="clipboard-offer" aria-labelledby="clipboard-title" hidden>
-        <svg aria-hidden="true"><use href="#icon-clipboard"/></svg>
-        <div class="offer-text"><strong id="clipboard-title">剪贴板中有 JSON</strong><span id="clipboard-detail"></span></div>
-        <div class="actions"><button id="load-clipboard" class="accent-button">载入剪贴板</button><button id="dismiss-clipboard" class="text-button">忽略</button></div>
-      </aside>
-
       <section id="launcher" aria-labelledby="launcher-title">
         <div class="launcher-heading">
           <h1 id="launcher-title">开发工具</h1>
@@ -99,7 +95,7 @@
         <div id="json-tool" class="tool-panel">
           <div class="toolbar">
             <div class="actions">
-              <button id="format" class="primary" title="格式化（Ctrl + Enter）">格式化</button><button id="minify">压缩</button>
+              <button id="format" class="primary" title="格式化（Ctrl + Enter）">格式化</button><button id="minify" title="压缩全文；选中节点时只压缩该节点">压缩</button>
               <button id="expand-json" title="将字符串中的 JSON 对象或数组展开">展开嵌套 JSON</button><button id="undo-expand" hidden>撤销展开</button>
             </div>
             <div class="actions">
@@ -115,7 +111,11 @@
                 <button id="copy-json" class="text-button copy-button" disabled><svg aria-hidden="true"><use href="#icon-copy"/></svg>复制结果</button>
               </div>
             </div>
-            <textarea id="json-output" spellcheck="false" wrap="off" placeholder="粘贴 JSON，或将 .json 文件拖到这里" aria-describedby="json-message" title="Ctrl + Enter 格式化"></textarea>
+            <div class="json-body">
+              <div id="json-gutter" class="json-gutter" aria-label="JSON 节点操作" hidden><div id="json-gutter-track" class="json-gutter-track"></div></div>
+              <div class="json-surface"><div id="json-node-highlight" class="json-node-highlight" aria-hidden="true" hidden></div><pre id="json-colors" aria-hidden="true"></pre>
+              <textarea id="json-output" spellcheck="false" wrap="off" placeholder="粘贴 JSON，或将 .json 文件拖到这里" aria-describedby="json-message" title="Ctrl + Enter 格式化"></textarea></div>
+            </div>
             <div class="editor-bottom"><button id="example" class="text-button">填入示例</button><span id="output-count" class="editor-count">等待输入</span><button id="download" class="text-button" disabled>保存 .json</button></div>
             <div id="drop-hint" class="drop-hint" hidden><strong>松开鼠标以导入 JSON</strong></div>
           </div>

@@ -60,7 +60,7 @@ else {
     Menu.setApplicationMenu(null);
     window = new BrowserWindow({
       ...initialBounds(), show: false, frame: false, resizable: true, minWidth: 380, minHeight: 400,
-      title: 'Ssx 工具箱', backgroundColor: nativeTheme.shouldUseDarkColors ? '#101621' : '#f7f9fc', icon: path.join(__dirname, '../assets/icon.ico'),
+      title: 'Ssx 工具箱', backgroundColor: nativeTheme.shouldUseDarkColors ? '#111113' : '#f7f7f8', icon: path.join(__dirname, '../assets/icon.ico'),
       webPreferences: { preload: path.join(__dirname, 'preload.cjs'), contextIsolation: true, sandbox: true, nodeIntegration: false, spellcheck: false }
     });
     window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));

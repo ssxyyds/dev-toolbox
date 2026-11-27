@@ -54,7 +54,7 @@ function pressGlobalShortcut() {
     const capture = name => page.screenshot({ path: path.resolve(__dirname, `../.impeccable/review/${name}.png`), fullPage: true, animations: 'disabled' });
     await capture('launcher');
     await page.emulateMedia({ colorScheme: 'dark' });
-    assert.equal(await page.evaluate(() => getComputedStyle(document.body).backgroundColor), 'rgb(16, 22, 33)');
+    assert.equal(await page.evaluate(() => getComputedStyle(document.body).backgroundColor), 'rgb(17, 17, 19)');
     await capture('launcher-dark');
     await page.emulateMedia({ colorScheme: 'light' });
     assert.equal(await page.locator('.tool-row').count(), 5);
@@ -183,15 +183,12 @@ function pressGlobalShortcut() {
     assert.equal(await jsonEditor.isVisible(), true, 'Opening the app again preserves its active tool');
     assert.deepEqual(await windowBounds(), customBounds, 'Opening the app again preserves window bounds');
     await app.evaluate(({ BrowserWindow }) => BrowserWindow.getAllWindows()[0].webContents.send('app:wake', { json: '{"wakeup":true}' }));
-    await page.locator('#clipboard-offer').waitFor();
+    assert.equal(await page.locator('#clipboard-offer').count(), 0, 'No redundant clipboard banner is shown');
     assert.equal(await jsonEditor.inputValue(), draft, 'A hotkey does not replace the existing JSON');
-    await page.locator('#dismiss-clipboard').click();
     await jsonEditor.press('Control+K');
     await search.waitFor();
     await paste(search, '{"pasted":true}');
-    await page.locator('#clipboard-offer').waitFor();
-    assert.equal(await jsonEditor.inputValue(), draft);
-    await page.locator('#load-clipboard').click();
+    await page.waitForFunction(() => document.getElementById('json-output').value.includes('pasted'));
     assert.match(await jsonEditor.inputValue(), /pasted/);
     const returnedBounds = await windowBounds();
     for (const key of ['width', 'height', 'x', 'y']) {

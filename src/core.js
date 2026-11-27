@@ -81,6 +81,78 @@
     const compact = tokens.join('');
     return { text: indent === 0 ? compact : renderJson(tokens, indent), compact, count };
   }
+  // Offsets refer to the displayed source, not reserialized JSON. The caller
+  // validates the entire document before requesting a localized edit.
+  function compactJsonNode(text, from, to = from) {
+    while (from < to && /\s/.test(text[from])) from++;
+    while (to > from && /\s/.test(text[to - 1])) to--;
+    const stack = [];
+    let keyStart = null;
+    for (const match of text.matchAll(JSON_TOKENS)) {
+      const token = match[0], pos = match.index;
+      if (token === '{' || token === '[') {
+        stack.push({ start: pos, key: keyStart ?? pos });
+      } else if (token === '}' || token === ']') {
+        const node = stack.pop();
+        if (node && from >= node.key && to <= pos + 1) {
+          const end = pos + 1;
+          return { start: node.start, end, compact: text.slice(node.start, end).match(JSON_TOKENS).join('') };
+        }
+      }
+      // Only a quoted token immediately followed by ':' names a child.
+      if (token !== ':') keyStart = token.startsWith('"') ? pos : null;
+    }
+    return null;
+  }
+  function listJsonNodes(text) {
+    if (typeof text !== 'string' || !text.trim() || text.length > MAX_JSON) return [];
+    try { JSON.parse(text.replace(/^\uFEFF/, '')); } catch { return []; }
+    const nodes = [], stack = [];
+    let lastString = null, pendingKey = null;
+    for (const match of text.matchAll(JSON_TOKENS)) {
+      const token = match[0], pos = match.index;
+      if (token === '{' || token === '[') {
+        if (stack.length) stack.at(-1).hasContent = true;
+        const entry = {
+          start: pos,
+          end: pos + 1,
+          key: pendingKey ? JSON.parse(pendingKey.raw) : null,
+          keyStart: pendingKey ? pendingKey.pos : pos,
+          hasContent: false,
+          multiline: false
+        };
+        nodes.push(entry);
+        stack.push(entry);
+        lastString = null;
+        pendingKey = null;
+      } else if (token === '}' || token === ']') {
+        const entry = stack.pop();
+        if (entry) {
+          entry.end = pos + 1;
+          entry.multiline = text.slice(entry.start, entry.end).includes('\n');
+        }
+        lastString = null;
+        pendingKey = null;
+      } else if (token === ':') {
+        pendingKey = lastString;
+        lastString = null;
+      } else {
+        if (stack.length) stack.at(-1).hasContent = true;
+        lastString = token.startsWith('"') ? { raw: token, pos } : null;
+        pendingKey = null;
+      }
+    }
+    return nodes
+      .filter(entry => entry.hasContent || entry.multiline)
+      .map(({ start, end, key, keyStart, multiline }) => ({ start, end, key, keyStart, multiline }));
+  }
+  function formatJsonNode(text, start, end, indent = 2) {
+    const tokens = jsonTokens(text.slice(start, end));
+    const rendered = renderJson(tokens, indent);
+    const lineStart = text.lastIndexOf('\n', start - 1) + 1;
+    const baseIndent = /^[ \t]*/.exec(text.slice(lineStart, start))[0];
+    return { start, end, text: baseIndent ? rendered.replace(/\n/g, '\n' + baseIndent) : rendered };
+  }
   function expandNestedJson(source, indent = 2) {
     const { text, count } = transformJson(source, indent, true);
     return { text, count };
@@ -190,7 +262,7 @@
     if (!Number.isInteger(count) || count < 1 || count > 20) throw new Error('生成数量须为 1–20 的整数。');
     return Array.from({ length: count }, () => globalThis.crypto.randomUUID());
   }
-  const api = { formatJson, isJson, isJsonDocument, expandNestedJson, transformJson, decodeBase64, encodeBase64, timestampToBeijing, beijingToTimestamp, generatePasswords, generateUuids, CHARSETS, MAX_JSON };
+  const api = { formatJson, compactJsonNode, listJsonNodes, formatJsonNode, isJson, isJsonDocument, expandNestedJson, transformJson, decodeBase64, encodeBase64, timestampToBeijing, beijingToTimestamp, generatePasswords, generateUuids, CHARSETS, MAX_JSON };
   if (typeof module !== 'undefined') module.exports = api;
   else root.ToolCore = api;
 })(globalThis);

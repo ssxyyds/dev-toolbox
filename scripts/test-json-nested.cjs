@@ -44,8 +44,33 @@ const fs = require('node:fs/promises');
     assert.equal(await page.locator('#json-output').inputValue(), '{"bad":}');
     assert.equal(await page.locator('#copy-json').isDisabled(), true);
     assert.match(await page.locator('#json-message').textContent(), /格式有误/);
+    const editor = page.locator('#json-output');
+    const sample = '{\n  "keep": [\n    true, null\n  ],\n  "child": {\n    "n": 9223372036854775807,\n    "s": "<span> []"\n  }\n}';
+    await editor.fill(sample);
+    await page.waitForFunction(text => document.getElementById('json-colors').textContent === text, sample);
+    await page.locator('#json-gutter button[aria-label="压缩当前节点：child"]').click();
+    const expected = sample.slice(0, sample.indexOf('{', 1)) + '{"n":9223372036854775807,"s":"<span> []"}\n}';
+    assert.equal(await editor.inputValue(), expected);
+    await page.waitForFunction(text => document.getElementById('json-colors').textContent === text, expected);
+    const expandChildBtn = page.locator('#json-gutter button[aria-label="展开当前节点：child"]');
+    assert.equal(await expandChildBtn.isVisible(), true);
+    const colors = await page.locator('#json-colors').evaluate(el => ['key','string','literal','number'].map(k => getComputedStyle(el.querySelector('.json-'+k)).color));
+    assert.equal(new Set(colors).size, 4);
+    await page.locator('#json-wrap').check();
+    assert.ok(await page.locator('#json-colors').evaluate(el => el.classList.contains('wrap')));
+    await editor.press('ArrowLeft');
+    await page.screenshot({path:path.resolve(__dirname, '../.impeccable/review/json-node-color.png')});
+    await expandChildBtn.click();
+    const reExpanded = '{\n  "keep": [\n    true, null\n  ],\n  "child": {\n    "n": 9223372036854775807,\n    "s": "<span> []"\n  }\n}';
+    assert.equal(await editor.inputValue(), reExpanded);
+    await editor.evaluate(el => el.setSelectionRange(el.value.indexOf('child'), el.value.indexOf('child') + 5));
+    await page.locator('#minify').click();
+    assert.equal(await editor.inputValue(), expected);
+    await editor.fill('{"bad":}'); await page.locator('#minify').click();
+    assert.equal(await editor.inputValue(), '{"bad":}');
+    assert.equal(await page.locator('#json-gutter').isVisible(), false);
     assert.deepEqual(errors, []);
-    console.log('PASS: nested body paste, expansion, exact large IDs, copy, undo, repeated clicks, edits, errors and narrow layout.');
+    console.log('PASS: nested body paste, expansion, exact large IDs, inline node compact/expand, copy, undo, repeated clicks, edits, errors and narrow layout.');
   } finally {
     try { await app.evaluate(async ({ clipboard }) => { if (globalThis.__nestedClipboard) await clipboard.write(globalThis.__nestedClipboard); }); }
     finally { await app.close(); }
